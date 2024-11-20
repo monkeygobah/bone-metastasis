@@ -4,6 +4,11 @@ import numpy as np
 import seaborn as sns
 from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score
 from maps import N_MAPPING, INCOME_MAPPING, RENAME_MAPPING, T_MAPPING,BIG_RENAME_MAPPING
+import os 
+output_dir = 'FIGS'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
 
 def corr_matrix(data):
     # Subset the columns you want to analyze
@@ -42,7 +47,7 @@ def corr_matrix(data):
         )
     plt.title("Triangular Correlation Matrix of Features (Upper Triangle Only)", fontsize=16, pad=20)
     # plt.show()
-    plt.savefig('corr_matrix_feats.png', dpi=300)
+    plt.savefig(os.path.join(output_dir,'corr_matrix_feats.png'), dpi=300)
 
 
 
@@ -59,7 +64,7 @@ def prf_thresh(thresholds,precisions, recalls, f1s, title = None, name = None):
     plt.legend()
     plt.grid(True)
     # plt.show()
-    plt.savefig(name,dpi=300)
+    plt.savefig(os.path.join(output_dir, name),dpi=300)
 
 def auroc_cm(y_test_bone, y_proba_bone,verbose=True, auroc_title = None, auroc_name = None, cm_title=None, cm_name = None, model=None):
     # Calculate the ROC curve
@@ -100,8 +105,8 @@ def get_auroc(optimal_threshold, y_test_bone, y_proba_bone,fpr,tpr,optimal_idx, 
     plt.title(auroc_title)
     plt.legend()
     plt.grid(True)
-    plt.show()
-    plt.savefig(auroc_name, dpi=300)
+    # plt.show()
+    plt.savefig(os.path.join(output_dir, auroc_name), dpi=300)
 
 
 def get_cm(y_test_bone, y_pred_custom, optimal_threshold, cm_title, cm_name):
@@ -138,28 +143,34 @@ def get_cm(y_test_bone, y_pred_custom, optimal_threshold, cm_title, cm_name):
     plt.xticks(fontsize=10)
     plt.yticks(fontsize=10)
     plt.tight_layout()
-    plt.show()
-    plt.savefig(cm_name, dpi=300)
+    # plt.show()
+    plt.savefig(os.path.join(output_dir, cm_name), dpi=300)
 
 
 def feat_imp(feature_importances,X_resampled_bone, n=20, title = None, name = None, log_reg = False, model = None):
+    top_n = n
+
     if log_reg:
         if model == None:
             raise ValueError('Need model when calculating feature importances using logistic regression')
         else:
             coeffs = np.abs(model.coef_[0])  # Get absolute values of coefficients
             sorted_indices = np.argsort(coeffs)[::-1]  # Sort from highest to lowest
+            top_indices_lr = sorted_indices[:top_n]
+            top_features_lr = [X_resampled_bone.columns[i] for i in top_indices_lr]
+            top_importances = coeffs[top_indices_lr]
+            top_features_renamed = [BIG_RENAME_MAPPING.get(feature, feature) for feature in top_features_lr]
+
+
     else:
         sorted_indices = np.argsort(feature_importances)[::-1]  # Sort from highest to lowest
-
-    # Get the top 10 features
-    top_n = n
-    top_indices = sorted_indices[:top_n]
-    top_features = [X_resampled_bone.columns[i] for i in top_indices]
-    top_importances = feature_importances[top_indices]
+        # Get the top 10 features
+        top_indices = sorted_indices[:top_n]
+        top_features = [X_resampled_bone.columns[i] for i in top_indices]
+        top_importances = feature_importances[top_indices]
 
 
-    top_features_renamed = [BIG_RENAME_MAPPING.get(feature, feature) for feature in top_features]
+        top_features_renamed = [BIG_RENAME_MAPPING.get(feature, feature) for feature in top_features]
 
     # Plot the top 10 feature importance as a horizontal bar plot
     plt.figure(figsize=(12, 8))  # Increased width for a longer graph
@@ -177,7 +188,7 @@ def feat_imp(feature_importances,X_resampled_bone, n=20, title = None, name = No
 
     plt.tight_layout()
     # plt.show()
-    plt.savefig(name, dpi=300)
+    plt.savefig(os.path.join(output_dir, name), dpi=300)
 
 
 
@@ -210,5 +221,5 @@ def plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr):
     plt.tight_layout()
 
     # Show plot
-    plt.show()
-    plt.savefig('all_aurocs.png',dpi=300)
+    # plt.show()
+    plt.savefig(os.path.join(output_dir, 'all_aurocs.png'),dpi=300)

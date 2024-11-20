@@ -14,7 +14,7 @@ def run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone):
     y_pred_lr = lr_model.predict(X_test_bone)
     y_proba_lr = lr_model.predict_proba(X_test_bone)[:, 1]
 
-    precisions, recalls, f1s, thresholds = get_metrics(y_proba_lr)
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_lr,y_test_bone)
     prf_thresh(thresholds,
                precisions, 
                recalls, 
@@ -36,7 +36,10 @@ def run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone):
              n=20,
              title = "Top 10 Feature Importance (Logistic Regression)",
              name = 'lr_feat_imp.png',
-             model =lr_model )
+             model =lr_model,
+            log_reg=True )
+    
+    return y_proba_lr
 
 
 
@@ -46,7 +49,7 @@ def run_xgb(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone,y_train_bo
     xgb_model_bone.fit(X_resampled_bone, y_resampled_bone)
     y_pred_bone = xgb_model_bone.predict(X_test_bone)
     y_proba_bone = xgb_model_bone.predict_proba(X_test_bone)[:, 1]
-    precisions, recalls, f1s, thresholds = get_metrics(y_proba_bone)
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_bone,y_test_bone)
 
 
     prf_thresh(thresholds,
@@ -83,7 +86,7 @@ def run_rf(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone):
     y_pred_rf = rf_model.predict(X_test_bone)
     y_proba_rf = rf_model.predict_proba(X_test_bone)[:, 1]
 
-    precisions, recalls, f1s, thresholds = get_metrics(y_proba_rf)
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_rf,y_test_bone)
     prf_thresh(thresholds,
                precisions, 
                recalls, 

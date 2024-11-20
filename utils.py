@@ -1,5 +1,5 @@
 import pandas as pd
-from maps import N_MAPPING, INCOME_MAPPING, RENAME_MAPPING, T_MAPPING
+from maps import N_MAPPING, INCOME_MAPPING, RENAME_MAPPING, T_MAPPING,RENAME_MAPPING_1
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
@@ -30,7 +30,7 @@ def combine_cols(data):
 
     return data
 
-def fix_names(data):
+def fix_names(data, save=False):
     # Simplify column names
     data.columns = (
         data.columns
@@ -40,13 +40,14 @@ def fix_names(data):
         .str.replace(r'\s+', '_', regex=True)
     )
     # Rename the columns
-    data.rename(columns=RENAME_MAPPING, inplace=True)
+    data.rename(columns=RENAME_MAPPING_1, inplace=True)
 
     # Extract the part after "Hepatocellular carcinoma"
     data['icdo3_histbehav'] = data['icdo3_histbehav'].str.extract(r'Hepatocellular carcinoma, (.*)')
 
     file_path = 'SEER_Cleaned.xlsx'
-    data.to_excel(file_path, index=False)
+    if save:
+        data.to_excel(file_path, index=False)
 
     return data
 
@@ -102,27 +103,25 @@ def do_ohe(data):
 
     # Check for duplicate column names
     duplicate_columns = data.columns[data.columns.duplicated()].tolist()
-    print("Duplicate columns:", duplicate_columns)
 
     # Drop duplicates if needed
     data = data.loc[:, ~data.columns.duplicated()]
 
     return data
 
-def prep_data():
+def prep_data(save=False):
     # Load dataset
-    data = pd.read_excel(r'C:\Users\Admin\Desktop\SEER\SEER_Final.xlsx')
+    data = pd.read_excel(r'SEER_Final.xlsx')
     data = combine_cols(data)
-    data = fix_names(data)
+    data = fix_names(data, save=save)
     data = do_mapping(data)
     data = do_ohe(data)
-
-    # Define the file path for saving the Excel file
     file_path = r'hot_encoding.xlsx'
-    # Save the DataFrame as an Excel file
-    data.to_excel(file_path, index=False)
+    if save:
+        data.to_excel(file_path, index=False)
 
     print(f"Data saved successfully to {file_path}")
+    return data
 
 
 def split_data(data):
@@ -152,7 +151,7 @@ def split_data(data):
 
 
 
-def get_metrics(y_proba_bone):
+def get_metrics(y_proba_bone,y_test_bone):
     # Compute precision, recall, and F1 for various thresholds
     thresholds = np.linspace(0, 1, 100)
     precisions, recalls, f1s = [], [], []

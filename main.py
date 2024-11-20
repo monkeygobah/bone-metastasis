@@ -30,7 +30,7 @@ of precision, F1 score, and AUC value to evaluate its overall effectiveness.
 
 
 def main():
-    data = prep_data()
+    data = prep_data(save=False)
     corr_matrix(data)
     X_train_bone, X_test_bone, y_train_bone, \
         y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data)
@@ -40,7 +40,7 @@ def main():
     y_proba_rf   = run_rf(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
 
     plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr)
-    engine()
+    engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
 
 
 

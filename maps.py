@@ -1,4 +1,4 @@
-RENAME_MAPPING = {
+RENAME_MAPPING_1 = {
     'seer_combined_mets_at_dxbone_2010': 'bone_met',
     'seer_combined_mets_at_dxlung_2010': 'lung_met',
     'age_recode_with_single_ages_and_90': 'age',
