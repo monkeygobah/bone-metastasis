@@ -1,20 +1,5 @@
 #Import Libraries
-import pandas as pd
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import seaborn as sns
-from xgboost import XGBClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score
-from sklearn.metrics import precision_recall_fscore_support
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
-from imblearn.over_sampling import SMOTE
-from maps import N_MAPPING, INCOME_MAPPING, RENAME_MAPPING, T_MAPPING,BIG_RENAME_MAPPING
-from utils import prep_data, split_data, get_metrics
+from utils import prep_data, split_data, cumulative_feature_importance
 from plotting import *
 from ml_models import *
 from dl_model import engine
@@ -31,20 +16,55 @@ of precision, F1 score, and AUC value to evaluate its overall effectiveness.
 
 def main():
     data = prep_data(save=False)
-    corr_matrix(data)
     X_train_bone, X_test_bone, y_train_bone, \
         y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data)
-    
-    y_proba_bone = run_xgb(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone,y_train_bone)
-    y_proba_lr   = run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
-    y_proba_rf   = run_rf(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
 
-    plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr)
-    engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
+
+
+    # # corr_matrix(data)
+    # y_proba_bone, xg_imps = run_xgb(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone,y_train_bone)
+    # y_proba_lr, lr_imps   = run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
+    # y_proba_lasso, lasso_imps = run_lasso_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False)
+    # y_proba_rf,rf_imps   = run_rf(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
+    # print(xg_imps)
+    # print(lr_imps)
+    # print(rf_imps)
+    # models = [
+    #     {'model_name': 'LASSO', 'top_features': lr_imps},
+    #     {'model_name': 'XGBoost', 'top_features': xg_imps},
+    #     {'model_name': 'Random Forest', 'top_features': rf_imps}
+    # ]
+
+
+
+    # feature_ranking = cumulative_feature_importance(models)
+    # print(feature_ranking)
+    
+    
+    # # feature_ranking.to_csv('combined_feat_imps.csv')
+    # plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lasso)
+    
+    # print('going to engine')
+    
+    
+    
+    
+    # print("Class distribution in y_train:")
+    # print(y_train_bone.value_counts())
+    
+    # print("Class distribution in y_train resampled:")
+    # print(y_resampled_bone.value_counts())
+
+    # print("\nClass distribution in y_test:")
+    # print(y_test_bone.value_counts())    
+    
+    
+    engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)
 
 
 
 if __name__ == '__main__':
+    print('found main')
     main()
 
 

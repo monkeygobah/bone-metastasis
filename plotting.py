@@ -189,6 +189,8 @@ def feat_imp(feature_importances,X_resampled_bone, n=20, title = None, name = No
     plt.tight_layout()
     # plt.show()
     plt.savefig(os.path.join(output_dir, name), dpi=300)
+    
+    return top_features_renamed,top_importances
 
 
 

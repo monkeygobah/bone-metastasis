@@ -1,0 +1,64 @@
+Columns
+age
+diagnosis_year
+followup_year
+diag_days_to_treatment
+tumor_size
+income
+combined_t
+combined_n
+followup_duration
+sex_Male
+ethnicity_Asian Indian (2010+)
+"ethnicity_Asian Indian or Pakistani, NOS (1988+)"
+ethnicity_Black
+ethnicity_Chamorran (1991+)
+ethnicity_Chinese
+ethnicity_Fiji Islander (1991+)
+ethnicity_Filipino
+"ethnicity_Guamanian, NOS (1991+)"
+ethnicity_Hawaiian
+ethnicity_Hmong (1988+)
+ethnicity_Japanese
+ethnicity_Kampuchean (1988+)
+ethnicity_Korean (1988+)
+ethnicity_Laotian (1988+)
+"ethnicity_Micronesian, NOS (1991+)"
+ethnicity_Other
+ethnicity_Other Asian (1991+)
+"ethnicity_Pacific Islander, NOS (1991+)"
+ethnicity_Pakistani (2010+)
+ethnicity_Samoan (1991+)
+ethnicity_Thai (1994+)
+ethnicity_Tongan (1991+)
+ethnicity_Unknown
+ethnicity_Vietnamese (1988+)
+ethnicity_White
+hispanic_Spanish-Hispanic-Latino
+icdo3_histbehav_clear cell type
+icdo3_histbehav_fibrolamellar
+icdo3_histbehav_pleomorphic type
+icdo3_histbehav_scirrhous
+icdo3_histbehav_spindle cell variant
+surgery_Not recommended
+"surgery_Not recommended, contraindicated due to other cond; autopsy only (1973-2002)"
+"surgery_Recommended but not performed, patient refused"
+"surgery_Recommended but not performed, unknown reason"
+"surgery_Recommended, unknown if performed"
+surgery_Surgery performed
+surgery_Unknown; death certificate; or autopsy only (2003+)
+chemo_Yes
+afp_pretreatment_cleaned_0
+afp_pretreatment_cleaned_1
+afp_pretreatment_cleaned_2
+marital_status_Married (including common law)
+marital_status_Separated
+marital_status_Single (never married)
+marital_status_Unknown
+marital_status_Unmarried or Domestic Partner
+marital_status_Widowed
+"rural_urban_Counties in metropolitan areas of 250,000 to 1 million pop"
+rural_urban_Counties in metropolitan areas of lt 250 thousand pop
+rural_urban_Nonmetropolitan counties adjacent to a metropolitan area
+rural_urban_Nonmetropolitan counties not adjacent to a metropolitan area
+rural_urban_Unknown/missing/no match/Not 1990-2022

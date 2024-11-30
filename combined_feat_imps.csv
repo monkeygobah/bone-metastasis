@@ -1,0 +1,64 @@
+,Feature,Cumulative_Score
+0,ethnicity_Chamorran (1991+),174
+1,diagnosis_year,173
+2,combined_t,171
+3,sex_Male,171
+4,age,170
+5,ethnicity_Fiji Islander (1991+),169
+6,followup_year,166
+7,tumor_size,165
+8,diag_days_to_treatment,165
+9,income,164
+10,ethnicity_Black,162
+11,followup_duration,161
+12,"ethnicity_Asian Indian or Pakistani, NOS (1988+)",160
+13,ethnicity_Asian Indian (2010+),155
+14,ethnicity_Filipino,154
+15,combined_n,151
+16,ethnicity_Hawaiian,147
+17,"ethnicity_Guamanian, NOS (1991+)",146
+18,ethnicity_Chinese,144
+19,ethnicity_Hmong (1988+),142
+20,afp_pretreatment_cleaned_2,0
+21,"surgery_Recommended but not performed, patient refused",0
+22,"surgery_Recommended but not performed, unknown reason",0
+23,"surgery_Recommended, unknown if performed",0
+24,surgery_Surgery performed,0
+25,surgery_Unknown; death certificate; or autopsy only (2003+),0
+26,chemo_Yes,0
+27,afp_pretreatment_cleaned_0,0
+28,afp_pretreatment_cleaned_1,0
+29,rural_urban_Nonmetropolitan counties not adjacent to a metropolitan area,0
+30,marital_status_Married (including common law),0
+31,marital_status_Separated,0
+32,marital_status_Single (never married),0
+33,marital_status_Unknown,0
+34,marital_status_Unmarried or Domestic Partner,0
+35,marital_status_Widowed,0
+36,"rural_urban_Counties in metropolitan areas of 250,000 to 1 million pop",0
+37,rural_urban_Counties in metropolitan areas of lt 250 thousand pop,0
+38,rural_urban_Nonmetropolitan counties adjacent to a metropolitan area,0
+39,surgery_Not recommended,0
+40,"surgery_Not recommended, contraindicated due to other cond; autopsy only (1973-2002)",0
+41,ethnicity_Tongan (1991+),0
+42,icdo3_histbehav_spindle cell variant,0
+43,ethnicity_Pakistani (2010+),0
+44,ethnicity_Japanese,0
+45,ethnicity_Kampuchean (1988+),0
+46,ethnicity_Korean (1988+),0
+47,ethnicity_Laotian (1988+),0
+48,"ethnicity_Micronesian, NOS (1991+)",0
+49,ethnicity_Other,0
+50,ethnicity_Other Asian (1991+),0
+51,"ethnicity_Pacific Islander, NOS (1991+)",0
+52,ethnicity_Samoan (1991+),0
+53,icdo3_histbehav_scirrhous,0
+54,ethnicity_Thai (1994+),0
+55,ethnicity_Unknown,0
+56,ethnicity_Vietnamese (1988+),0
+57,ethnicity_White,0
+58,hispanic_Spanish-Hispanic-Latino,0
+59,icdo3_histbehav_clear cell type,0
+60,icdo3_histbehav_fibrolamellar,0
+61,icdo3_histbehav_pleomorphic type,0
+62,rural_urban_Unknown/missing/no match/Not 1990-2022,0

@@ -164,3 +164,50 @@ def get_metrics(y_proba_bone,y_test_bone):
         f1s.append(f1)
 
     return precisions, recalls, f1s, thresholds
+
+
+# def cumulative_feature_importance(models, X_columns, n_features=20):
+#     feature_scores = {feature: 0 for feature in X_columns}
+#     n = len(X_columns)
+
+#     for model_info in models:
+#         importances = model_info['importances']
+#         log_reg = model_info['log_reg']
+#         model_name = model_info['model_name']
+        
+#         if log_reg:
+#             ranked_indices = np.argsort(np.abs(importances))[::-1]
+#         else:
+#             ranked_indices = np.argsort(importances)[::-1]
+        
+#         for rank, idx in enumerate(ranked_indices[:n_features]):
+#             feature = X_columns[idx]
+#             score = n - rank
+#             feature_scores[feature] += score
+    
+#     # Convert scores to DataFrame
+#     feature_ranking = pd.DataFrame({
+#         'Feature': feature_scores.keys(),
+#         'Cumulative_Score': feature_scores.values()
+#     })
+#     feature_ranking = feature_ranking.sort_values(by='Cumulative_Score', ascending=False).reset_index(drop=True)
+
+#     return feature_ranking
+
+def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15,20]):
+    print(thresholds)
+    results = {}
+    for threshold in thresholds:
+        if not isinstance(threshold, int):
+            raise ValueError(f"Threshold value must be an integer, got {threshold}")
+        
+        # Ensure top_features is a list and perform slicing safely
+        top_features_sets = [set(model['top_features'][:int(threshold)]) for model in models]
+        
+        # Compute intersection of top features across all models
+        common_features = set.intersection(*top_features_sets)
+        
+        # Store the result
+        results[threshold] = len(common_features)
+    
+    return results

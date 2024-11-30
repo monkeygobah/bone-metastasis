@@ -4,112 +4,226 @@ import torch.optim as optim
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score
+from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score,precision_score, recall_score
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import accuracy_score
+from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 
-# Define the CNN model
-class CNN1D(nn.Module):
-    def __init__(self, input_size):
-        super(CNN1D, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(32 * input_size, 64)
-        self.fc2 = nn.Linear(64, 1)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
+class MLP(nn.Module):
+    def __init__(self, input_size, dropout_rate=0.2):
+        super(MLP, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_size, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(64, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.Linear(32, 2) 
+        )
 
     def forward(self, x):
-        x = x.unsqueeze(1)  # Add channel dimension
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)  # Flatten for fully connected layer
-        x = self.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = self.fc2(x)
-        return x
+        return self.model(x)
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, logits, targets):
+        ce_loss = nn.CrossEntropyLoss()(logits, targets)
+        pt = torch.exp(-ce_loss)  # Probability of the correct class
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
+        return focal_loss
 
 
-def get_dataloaders(X_train_bone,X_test_bone,y_train_bone,y_test_bone):
-    # Scale the data
+class RecallLoss(nn.Module):
+    def __init__(self):
+        super(RecallLoss, self).__init__()
+
+    def forward(self, logits, targets):
+        preds = torch.sigmoid(logits[:, 1])  # Positive class logits
+        labels = targets.float()
+
+        # False Negatives = (1 - predicted) * true positive
+        fn_loss = ((1 - preds) * labels).mean()
+        return fn_loss
+
+
+class WeightedPRAUCLoss(nn.Module):
+    def __init__(self, positive_weight=1.0):
+        super(WeightedPRAUCLoss, self).__init__()
+        self.positive_weight = positive_weight
+
+    def forward(self, logits, targets):
+        preds = torch.sigmoid(logits[:, 1])  
+        labels = targets.float()
+
+        # Pairwise indices
+        positive_indices = (labels == 1).nonzero(as_tuple=True)[0]
+        negative_indices = (labels == 0).nonzero(as_tuple=True)[0]
+
+        if len(positive_indices) == 0 or len(negative_indices) == 0:
+            return torch.tensor(0.0, requires_grad=True)
+
+        positive_preds = preds[positive_indices]
+        negative_preds = preds[negative_indices]
+
+        # Pairwise differences
+        pairwise_diff = positive_preds.unsqueeze(1) - negative_preds.unsqueeze(0)
+        hinge_loss = torch.clamp(1 - pairwise_diff, min=0)
+
+        # Apply weights to minority-class pairs
+        weights = torch.ones_like(hinge_loss)
+        weights[:, :] = self.positive_weight  
+
+        loss = (weights * hinge_loss).mean()
+        return loss
+
+
+def get_balanced_dataloader(X_train_tensor, y_train_tensor, batch_size):
+    # Calculate class weights
+    class_counts = torch.bincount(y_train_tensor.long())
+    class_weights = 1.0 / class_counts
+    sample_weights = class_weights[y_train_tensor.long()]
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
+    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    balanced_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+
+    return balanced_loader
+
+
+def get_dataloaders(X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_size=32):
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_bone)
-    X_test_scaled = scaler.transform(X_test_bone)
+    # X_train_scaled = scaler.fit_transform(X_train_bone)
+    # X_test_scaled = scaler.transform(X_test_bone)
 
-    # Convert data to PyTorch tensors
+    X_train_scaled = X_train_bone.to_numpy() 
+    X_test_scaled = X_test_bone.to_numpy()
+
     X_train_tensor = torch.tensor(X_train_scaled, dtype=torch.float32)
     y_train_tensor = torch.tensor(y_train_bone.values, dtype=torch.float32)
     X_test_tensor = torch.tensor(X_test_scaled, dtype=torch.float32)
     y_test_tensor = torch.tensor(y_test_bone.values, dtype=torch.float32)
 
-    # Calculate positive class weight for imbalanced datasets
     positive_samples = y_train_tensor.sum().item()
     negative_samples = len(y_train_tensor) - positive_samples
     pos_weight = negative_samples / positive_samples
     pos_weight_tensor = torch.tensor([pos_weight], dtype=torch.float32)
 
-    return X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor,pos_weight_tensor
+    test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    
+    balanced_loader = get_balanced_dataloader(X_train_tensor, y_train_tensor, batch_size)
+    
+    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    normal_loader = DataLoader(train_dataset, batch_size=batch_size)
 
-def engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone):
-    X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor,pos_weight_tensor = get_dataloaders(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
-    # Initialize the model, loss function, and optimizer
-    input_size = X_train_tensor.shape[1]
-    cnn_model = CNN1D(input_size)
+    return balanced_loader,normal_loader, test_loader, pos_weight_tensor
 
-    # Split the data into training and validation sets
-    X_train_main, X_val, y_train_main, y_val = train_test_split(
-        X_train_tensor, y_train_tensor, test_size=0.2, random_state=42, stratify=y_train_tensor
+
+def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
+    # Get DataLoaders and class weight
+    # from imblearn.over_sampling import RandomOverSampler
+
+    # ros = RandomOverSampler(sampling_strategy='minority')
+    
+    # X_resampled, y_resampled = ros.fit_resample(X_train_bone, y_train_bone)
+    
+    balanced_loader, normal_loader, test_loader, pos_weight_tensor = get_dataloaders(
+        X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_size=32
     )
 
-    train_loop(cnn_model,X_train_main,y_train_main,pos_weight_tensor,X_val,y_val)
-    test(cnn_model, y_test_tensor, X_test_tensor)
+    # Define model
+    input_size = X_train_bone.shape[1]
+    model = MLP(input_size)
 
-def train_loop(cnn_model,X_train_main,y_train_main,pos_weight_tensor,X_val,y_val):
-    # Training loop with early stopping
-    num_epochs = 100
-    batch_size = 64
-    patience = 10
-    best_val_loss = float('inf')
-    early_stop_counter = 0
-    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)
-    optimizer = optim.Adam(cnn_model.parameters(), lr=0.001, weight_decay=1e-5)
+    # Train the model
+    train_loop(model, normal_loader, test_loader, pos_weight_tensor, num_epochs=100, lr=0.001)
 
-    for epoch in range(num_epochs):
-        cnn_model.train()
-        permutation = torch.randperm(X_train_main.size(0))
-        epoch_loss = 0.0
 
-        for i in range(0, X_train_main.size(0), batch_size):
-            indices = permutation[i:i + batch_size]
-            batch_x, batch_y = X_train_main[indices], y_train_main[indices]
 
+def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=0.001):
+    # Weighted Cross-Entropy Loss
+    # criterion_celw = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight.item()]))
+    # criterion_foc = FocalLoss(alpha=1, gamma=2)
+    criterion_cel = nn.CrossEntropyLoss()
+    # criterion_pr = WeightedPRAUCLoss(positive_weight=1)
+    # criterion_rec  = RecallLoss()
+    
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
+    rec_reg=.05
+    
+    for epoch in range(1, num_epochs + 1):
+        model.train()
+        epoch_loss = 0
+
+        for X_batch, y_batch in train_loader:
             optimizer.zero_grad()
-            outputs = cnn_model(batch_x).squeeze()
-            loss = criterion(outputs, batch_y)
-            loss.backward()
+            outputs = model(X_batch)
+            # loss_pr = criterion_pr(outputs, y_batch.long())
+            # loss_rec = criterion_rec(outputs, y_batch.long())
+            # loss_celw = criterion_celw(outputs, y_batch.long())
+            loss_cel = criterion_cel(outputs, y_batch.long())
+            # loss_foc = criterion_foc(outputs, y_batch.long())
+            
+            # recall_loss_term = rec_reg * loss_rec
+            
+            # fin_loss = loss_pr + recall_loss_term
+            # fin_loss = loss_cel + recall_loss_term  # This does not work with recall term
+            # fin_loss = loss_foc + recall_loss_term  # This does not work with recall term
+            # fin_loss = loss_celw + recall_loss_term # This does not work with recall term
+            
+            # fin_loss = loss_pr 
+            fin_loss = loss_cel 
+            # fin_loss = loss_foc 
+            # fin_loss = loss_celw 
+
+
+            fin_loss.backward()
             optimizer.step()
-            epoch_loss += loss.item() * batch_x.size(0)
+            epoch_loss += fin_loss.item()
 
-        epoch_loss /= X_train_main.size(0)
+        # Evaluate every 5 epochs
+        if epoch % 5 == 0 or epoch == num_epochs:
+            test_accuracy, precision, recall, auroc = evaluate_metrics(model, test_loader)
+            print(
+                f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
+                f"Test Accuracy: {test_accuracy:.4f}, Precision: {precision:.4f}, "
+                f"Recall: {recall:.4f}, AUROC: {auroc:.4f}"
+            )
 
-        # Validation
-        cnn_model.eval()
-        with torch.no_grad():
-            val_outputs = cnn_model(X_val).squeeze()
-            val_loss = criterion(val_outputs, y_val).item()
 
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Train Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f}')
+def evaluate_metrics(model, loader):
+    model.eval()
+    y_true = []
+    y_pred = []
+    y_probs = []
 
-        # Early stopping
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            early_stop_counter = 0
-            best_model_state = cnn_model.state_dict()
-        else:
-            early_stop_counter += 1
-            if early_stop_counter >= patience:
-                print('Early stopping!')
-                break
+    with torch.no_grad():
+        for X_batch, y_batch in loader:
+            outputs = model(X_batch)
+            probabilities = torch.softmax(outputs, dim=1)[:, 1]  # Probability of the positive class
+            predictions = torch.argmax(outputs, axis=1)
+
+            y_true.extend(y_batch.numpy())
+            y_pred.extend(predictions.numpy())
+            y_probs.extend(probabilities.numpy())
+
+    # Calculate metrics
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    auroc = roc_auc_score(y_true, y_probs)
+
+    return accuracy, precision, recall, auroc
 
 
 def test(cnn_model, y_test_tensor, X_test_tensor):
