@@ -17,7 +17,7 @@ of precision, F1 score, and AUC value to evaluate its overall effectiveness.
 def main():
     data = prep_data(save=False)
     X_train_bone, X_test_bone, y_train_bone, \
-        y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data)
+        y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data, drop_real_world = False, bone=True)
 
 
 
@@ -29,13 +29,14 @@ def main():
     print(xg_imps)
     print(lr_imps)
     print(rf_imps)
+
     models = [
         {'model_name': 'LR', 'top_features': lr_imps},
         {'model_name': 'XGBoost', 'top_features': xg_imps},
         {'model_name': 'Random Forest', 'top_features': rf_imps}
     ]
-    feature_ranking = cumulative_feature_importance(models)
-    print(feature_ranking)
+    feature_ranking,results = cumulative_feature_importance(models)
+    print(results)
     
     
     # feature_ranking.to_csv('combined_feat_imps.csv')
@@ -59,7 +60,7 @@ def main():
     engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
 
     #using SMOTE data
-    engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)
+    # engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)
 
 
 

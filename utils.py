@@ -121,13 +121,41 @@ def prep_data(save=False):
         data.to_excel(file_path, index=False)
 
     print(f"Data saved successfully to {file_path}")
+
+
+
+    # # Example usage
+    # features = [
+    #     'Surgery Not Recommended', 'ethnicity_Thai (1994+)', 'ethnicity_Asian Indian or Pakistani, NOS (1988+)', 
+    #     'Surgery Recommended, Not Performed, Unknown Reason', 'ethnicity_Pacific Islander, NOS (1991+)', 
+    #     'Pretreatment AFP Borderline', 'Surgery Recommended, Not Performed, Patient Refused', 
+    #     'Surgery Contraindicated due to other condition', 'icdo3_histbehav_scirrhous', 'N Staging', 
+    #     'ethnicity_Pakistani (2010+)', 'ethnicity_Samoan (1991+)', 'icdo3_histbehav_spindle cell variant', 
+    #     'surgery_Recommended, unknown if performed', 'Pretreatment AFP Normal', 'ethnicity_Laotian (1988+)', 
+    #     'ethnicity_Micronesian, NOS (1991+)', 'ethnicity_Other Asian (1991+)', 'icdo3_histbehav_fibrolamellar', 
+    #     'Follow-up Duration'
+    # ]
+    # plot_feature_distributions(features, data, label_column="bone_met")
     return data
 
 
-def split_data(data):
+def split_data(data, drop_real_world=False, bone = True):
     # Separate features and targets for bone metastasis
     X = data.drop(columns=['bone_met', 'lung_met'])
-    y_bone = data['bone_met']
+    if drop_real_world:
+        X= X.drop(columns = ['surgery_Not recommended', 
+                             "surgery_Not recommended, contraindicated due to other cond; autopsy only (1973-2002)",
+                            "surgery_Recommended but not performed, patient refused",
+                            "surgery_Recommended but not performed, unknown reason",
+                            "surgery_Recommended, unknown if performed",
+                            'surgery_Surgery performed',
+                            'surgery_Unknown; death certificate; or autopsy only (2003+)'])
+
+    if bone:
+        y_bone = data['bone_met']
+    else:
+        y_bone = data['lung_met']
+
 
 
     # Split data for bone metastasis
@@ -194,9 +222,11 @@ def get_metrics(y_proba_bone,y_test_bone):
 
 #     return feature_ranking
 
-def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15,20]):
+def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15, 20]):
     print(thresholds)
     results = {}
+    conserved_features = {}
+
     for threshold in thresholds:
         if not isinstance(threshold, int):
             raise ValueError(f"Threshold value must be an integer, got {threshold}")
@@ -209,5 +239,48 @@ def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15,20]):
         
         # Store the result
         results[threshold] = len(common_features)
+        conserved_features[threshold] = common_features  # Save the feature names for this threshold
     
-    return results
+    # Print the conserved features for each threshold
+    for threshold, features in conserved_features.items():
+        print(f"\nFor threshold {threshold}, conserved features ({len(features)}):")
+        for feature in features:
+            print(f"- {feature}")
+
+    return results, conserved_features
+
+
+
+import os
+import matplotlib.pyplot as plt
+import pandas as pd
+
+def plot_feature_distributions(features, data, label_column, output_dir="feature_distributions"):
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for feature in features:
+        if feature not in data.columns:
+            print(f"Feature '{feature}' not found in data.")
+            continue
+        
+        # Group by the feature and label column, count occurrences
+        grouped = data.groupby([feature, label_column]).size().unstack(fill_value=0)
+        
+        # Create a bar plot
+        grouped.plot(kind='bar', figsize=(10, 6))
+        plt.title(f"Distribution of {label_column} for {feature}", fontsize=14)
+        plt.xlabel(feature, fontsize=12)
+        plt.ylabel("Count", fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.legend(title=label_column, labels=['0', '1'])
+        
+        # Save the plot
+        save_path = os.path.join(output_dir, f"{feature}_distribution.png")
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+    
+    print(f"Plots saved in '{output_dir}'.")
+

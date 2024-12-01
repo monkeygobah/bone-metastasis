@@ -170,8 +170,8 @@ def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=
             outputs = model(X_batch)
             # loss_pr = criterion_pr(outputs, y_batch.long())
             # loss_rec = criterion_rec(outputs, y_batch.long())
-            # loss_celw = criterion_celw(outputs, y_batch.long())
-            loss_cel = criterion_cel(outputs, y_batch.long())
+            loss_celw = criterion_celw(outputs, y_batch.long())
+            # loss_cel = criterion_cel(outputs, y_batch.long())
             # loss_foc = criterion_foc(outputs, y_batch.long())
             
             # recall_loss_term = rec_reg * loss_rec
@@ -182,9 +182,9 @@ def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=
             # fin_loss = loss_celw + recall_loss_term # This does not work with recall term
             
             # fin_loss = loss_pr 
-            fin_loss = loss_cel 
+            # fin_loss = loss_cel 
             # fin_loss = loss_foc 
-            # fin_loss = loss_celw 
+            fin_loss = loss_celw 
 
 
             fin_loss.backward()
