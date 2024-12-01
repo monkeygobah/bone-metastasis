@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 
 class MLP(nn.Module):
-    def __init__(self, input_size, dropout_rate=0.2):
+    def __init__(self, input_size, dropout_rate=0.3):
         super(MLP, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_size, 128),
@@ -152,11 +152,11 @@ def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
 
 def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=0.001):
     # Weighted Cross-Entropy Loss
-    # criterion_celw = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight.item()]))
-    # criterion_foc = FocalLoss(alpha=1, gamma=2)
+    criterion_celw = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight.item()]))
+    criterion_foc = FocalLoss(alpha=1, gamma=2)
     criterion_cel = nn.CrossEntropyLoss()
-    # criterion_pr = WeightedPRAUCLoss(positive_weight=1)
-    # criterion_rec  = RecallLoss()
+    criterion_pr = WeightedPRAUCLoss(positive_weight=1)
+    criterion_rec  = RecallLoss()
     
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
     rec_reg=.05

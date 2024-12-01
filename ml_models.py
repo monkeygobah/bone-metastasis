@@ -4,6 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score,precision_score, recall_score, accuracy_score
+from sklearn.metrics import f1_score
 
 
 def run_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False):
@@ -20,10 +21,11 @@ def run_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,ver
     recall = recall_score(y_test_bone, y_pred_lr)
     accuracy = accuracy_score(y_test_bone, y_pred_lr)
     auroc = roc_auc_score(y_test_bone, y_proba_lr)
+    f1 = f1_score(y_test_bone, y_pred_lr)
 
     # Print metrics
     print(f"Logistic Regression Metrics:")
-    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}")
+    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # Generate plots
     # precisions, recalls, f1s, thresholds = get_metrics(y_proba_lr, y_test_bone)
@@ -62,10 +64,11 @@ def run_lasso_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bo
     recall = recall_score(y_test_bone, y_pred_lasso)
     accuracy = accuracy_score(y_test_bone, y_pred_lasso)
     auroc = roc_auc_score(y_test_bone, y_proba_lasso)
+    f1 = f1_score(y_test_bone, y_pred_lasso)
 
     # Print metrics
     print(f"LASSO Logistic Regression Metrics:")
-    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}")
+    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
     # precisions, recalls, f1s, thresholds = get_metrics(y_proba_lasso, y_test_bone)
@@ -104,10 +107,11 @@ def run_xgb(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone, y_trai
     recall = recall_score(y_test_bone, y_pred_bone)
     accuracy = accuracy_score(y_test_bone, y_pred_bone)
     auroc = roc_auc_score(y_test_bone, y_proba_bone)
+    f1 = f1_score(y_test_bone, y_pred_bone)
 
     # Print metrics
     print(f"XGBoost Metrics:")
-    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}")
+    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
     # precisions, recalls, f1s, thresholds = get_metrics(y_proba_bone, y_test_bone)
@@ -144,10 +148,11 @@ def run_rf(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=
     recall = recall_score(y_test_bone, y_pred_rf)
     accuracy = accuracy_score(y_test_bone, y_pred_rf)
     auroc = roc_auc_score(y_test_bone, y_proba_rf)
+    f1 = f1_score(y_test_bone, y_pred_rf)
 
     # Print metrics
     print(f"Random Forest Metrics:")
-    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}")
+    print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
     # precisions, recalls, f1s, thresholds = get_metrics(y_proba_rf, y_test_bone)
