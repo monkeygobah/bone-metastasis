@@ -55,8 +55,10 @@ def main():
     print("\nClass distribution in y_test:")
     print(y_test_bone.value_counts())    
     
-    engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)
+    #using original, non SMOTE data
+    engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
 
+    #using SMOTE data
     engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)
 
 
