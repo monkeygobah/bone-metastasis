@@ -4,7 +4,7 @@ import torch.optim as optim
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score,precision_score, recall_score
+from sklearn.metrics import roc_curve, classification_report, confusion_matrix, roc_auc_score,precision_score, recall_score, f1_score
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
@@ -128,39 +128,53 @@ def get_dataloaders(X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_
 
     return balanced_loader,normal_loader, test_loader, pos_weight_tensor
 
+import csv
+import pandas as pd
 
 def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
     # Get DataLoaders and class weight
-    # from imblearn.over_sampling import RandomOverSampler
-
-    # ros = RandomOverSampler(sampling_strategy='minority')
-    
-    # X_resampled, y_resampled = ros.fit_resample(X_train_bone, y_train_bone)
-    
     balanced_loader, normal_loader, test_loader, pos_weight_tensor = get_dataloaders(
         X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_size=32
     )
 
-    # Define model
+    # Define model input size
     input_size = X_train_bone.shape[1]
-    model = MLP(input_size)
 
-    # Train the model
-    train_loop(model, normal_loader, test_loader, pos_weight_tensor, num_epochs=100, lr=0.001)
+    # Define the loss functions
+    loss_functions = {
+        "loss_pr": WeightedPRAUCLoss(positive_weight=1),
+        "loss_rec": RecallLoss(),
+        "loss_cel": nn.CrossEntropyLoss(),
+        "loss_foc": FocalLoss(alpha=1, gamma=2),
+        "loss_celw": nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight_tensor.item()])),
+    }
+
+    # Train a model for each loss function
+    for loss_name, loss_fn in loss_functions.items():
+        print(f"\nTraining with {loss_name}...\n")
+        model = MLP(input_size)
+        train_loop(
+            model,
+            balanced_loader,
+            test_loader,
+            loss_fn,
+            num_epochs=100,
+            lr=0.001,
+            loss_name=loss_name
+        )
 
 
-
-def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=0.001):
-    # Weighted Cross-Entropy Loss
-    criterion_celw = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight.item()]))
-    criterion_foc = FocalLoss(alpha=1, gamma=2)
-    criterion_cel = nn.CrossEntropyLoss()
-    criterion_pr = WeightedPRAUCLoss(positive_weight=1)
-    criterion_rec  = RecallLoss()
-    
+def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.001, loss_name="loss"):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
-    rec_reg=.05
-    
+
+    # CSV file to log results
+    csv_file = f"{loss_name}_metrics.csv"
+    with open(csv_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Epoch", "Precision", "Recall", "Accuracy", "AUROC", "F1", "Best Epoch"])
+
+    best_metrics = {"Precision": 0, "Recall": 0, "Accuracy": 0, "AUROC": 0, "F1": 0, "Epoch": 0}
+
     for epoch in range(1, num_epochs + 1):
         model.train()
         epoch_loss = 0
@@ -168,40 +182,37 @@ def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=
         for X_batch, y_batch in train_loader:
             optimizer.zero_grad()
             outputs = model(X_batch)
-            # loss_pr = criterion_pr(outputs, y_batch.long())
-            # loss_rec = criterion_rec(outputs, y_batch.long())
-            loss_celw = criterion_celw(outputs, y_batch.long())
-            # loss_cel = criterion_cel(outputs, y_batch.long())
-            # loss_foc = criterion_foc(outputs, y_batch.long())
-            
-            # recall_loss_term = rec_reg * loss_rec
-            
-            # fin_loss = loss_pr + recall_loss_term
-            # fin_loss = loss_cel + recall_loss_term  # This does not work with recall term
-            # fin_loss = loss_foc + recall_loss_term  # This does not work with recall term
-            # fin_loss = loss_celw + recall_loss_term # This does not work with recall term
-            
-            # fin_loss = loss_pr 
-            # fin_loss = loss_cel 
-            # fin_loss = loss_foc 
-            fin_loss = loss_celw 
 
-
-            fin_loss.backward()
+            # Calculate loss
+            loss = loss_fn(outputs, y_batch.long())
+            loss.backward()
             optimizer.step()
-            epoch_loss += fin_loss.item()
+            epoch_loss += loss.item()
 
         # Evaluate every 5 epochs
         if epoch % 5 == 0 or epoch == num_epochs:
-            test_accuracy, precision, recall, auroc = evaluate_metrics(model, test_loader)
+            test_accuracy, precision, recall, auroc, f1 = evaluate_metrics_extended(model, test_loader)
+
             print(
                 f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
                 f"Test Accuracy: {test_accuracy:.4f}, Precision: {precision:.4f}, "
-                f"Recall: {recall:.4f}, AUROC: {auroc:.4f}"
+                f"Recall: {recall:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}"
             )
 
+            # Check if this epoch has the best recall
+            if recall > best_metrics["F1"]:
+                best_metrics.update({"Precision": precision, "Recall": recall, "Accuracy": test_accuracy,
+                                     "AUROC": auroc, "F1": f1, "Epoch": epoch})
 
-def evaluate_metrics(model, loader):
+            # Append metrics to CSV
+            with open(csv_file, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([epoch, precision, recall, test_accuracy, auroc, f1, best_metrics["Epoch"]])
+
+    print(f"Best metrics for {loss_name}: {best_metrics}")
+
+
+def evaluate_metrics_extended(model, loader):
     model.eval()
     y_true = []
     y_pred = []
@@ -222,75 +233,114 @@ def evaluate_metrics(model, loader):
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     auroc = roc_auc_score(y_true, y_probs)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
 
-    return accuracy, precision, recall, auroc
+    return accuracy, precision, recall, auroc, f1
 
 
-def test(cnn_model, y_test_tensor, X_test_tensor):
-    # Load the best model state
-    # cnn_model.load_state_dict(best_model_state)
 
-    # Evaluate the model on the test set
-    cnn_model.eval()
-    with torch.no_grad():
-        test_outputs = cnn_model(X_test_tensor).squeeze()
-        y_pred_proba_cnn = torch.sigmoid(test_outputs).numpy()
-        y_test_np = y_test_tensor.numpy()
 
-    # Find the optimal threshold using the ROC curve
-    fpr_cnn, tpr_cnn, thresholds_cnn = roc_curve(y_test_np, y_pred_proba_cnn)
-    optimal_idx_cnn = np.argmax(tpr_cnn - fpr_cnn)
-    optimal_threshold_cnn = thresholds_cnn[optimal_idx_cnn]
-    print(f'Optimal Threshold: {optimal_threshold_cnn:.4f}')
+# def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
+#     # Get DataLoaders and class weight
+#     # from imblearn.over_sampling import RandomOverSampler
 
-    # Apply the optimal threshold
-    y_pred_cnn = (y_pred_proba_cnn >= optimal_threshold_cnn).astype(int)
+#     # ros = RandomOverSampler(sampling_strategy='minority')
+    
+#     # X_resampled, y_resampled = ros.fit_resample(X_train_bone, y_train_bone)
+    
+#     balanced_loader, normal_loader, test_loader, pos_weight_tensor = get_dataloaders(
+#         X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_size=32
+#     )
 
-    # Print evaluation metrics
-    print("Bone Metastasis Prediction with CNN:")
-    print(classification_report(y_test_np, y_pred_cnn))
-    print("ROC-AUC Score:", roc_auc_score(y_test_np, y_pred_proba_cnn))
-    print("Confusion Matrix:\n", confusion_matrix(y_test_np, y_pred_cnn))
+#     # Define model
+#     input_size = X_train_bone.shape[1]
+#     model = MLP(input_size)
 
-    # ROC Curve Plot for CNN
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr_cnn, tpr_cnn, label=f"CNN ROC Curve (AUC = {roc_auc_score(y_test_np, y_pred_proba_cnn):.2f})", color="darkorange")
-    plt.scatter(fpr_cnn[optimal_idx_cnn], tpr_cnn[optimal_idx_cnn], color="red", label=f"Optimal Threshold = {optimal_threshold_cnn:.4f}")
-    plt.plot([0, 1], [0, 1], color="black", linestyle="--")
-    plt.xlabel("False Positive Rate", fontsize=14)
-    plt.ylabel("True Positive Rate", fontsize=14)
-    plt.title("ROC Curve with Optimal Threshold (CNN - Bone Metastasis)", fontsize=16, fontweight="bold")
-    plt.legend(fontsize=12)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+#     # Train the model
+#     train_loop(model, balanced_loader, test_loader, pos_weight_tensor, num_epochs=100, lr=0.001)
 
-    # Confusion Matrix Plot for CNN
-    cm_cnn = confusion_matrix(y_test_np, y_pred_cnn)
-    cm_cnn_percentage = cm_cnn / cm_cnn.sum(axis=1, keepdims=True) * 100
 
-    plt.figure(figsize=(6, 6))
-    ax = sns.heatmap(
-        cm_cnn,
-        annot=False,  # Disable default annotations for manual addition
-        fmt="d",
-        cmap="Blues",
-        xticklabels=["No Metastasis", "Metastasis"],
-        yticklabels=["No Metastasis", "Metastasis"],
-        cbar_kws={"label": "Counts"},
-    )
 
-    # Annotate Confusion Matrix
-    for i in range(cm_cnn.shape[0]):
-        for j in range(cm_cnn.shape[1]):
-            text_color = "white" if i == 0 else "black"
-            # Add raw count
-            ax.text(j + 0.5, i + 0.4, f"{cm_cnn[i, j]}", ha="center", va="center", color=text_color, fontsize=12, weight="bold")
-            # Add percentage below count
-            ax.text(j + 0.5, i + 0.6, f"({cm_cnn_percentage[i, j]:.1f}%)", ha="center", va="center", color=text_color, fontsize=10)
+# def train_loop(model, train_loader, test_loader, pos_weight, num_epochs=100, lr=0.001):
+#     # Weighted Cross-Entropy Loss
+#     criterion_celw = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight.item()]))
+#     criterion_foc = FocalLoss(alpha=1, gamma=2)
+#     criterion_cel = nn.CrossEntropyLoss()
+#     criterion_pr = WeightedPRAUCLoss(positive_weight=1)
+#     criterion_rec  = RecallLoss()
+    
+#     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
+#     rec_reg=.05
+    
+#     for epoch in range(1, num_epochs + 1):
+#         model.train()
+#         epoch_loss = 0
 
-    plt.title(f"Confusion Matrix at Optimal Threshold ({optimal_threshold_cnn:.4f})", fontsize=14, fontweight="bold")
-    plt.xlabel("Predicted", fontsize=12)
-    plt.ylabel("True", fontsize=12)
-    plt.tight_layout()
-    plt.show()
+#         for X_batch, y_batch in train_loader:
+#             optimizer.zero_grad()
+#             outputs = model(X_batch)
+#             loss_pr = criterion_pr(outputs, y_batch.long())
+#             loss_rec = criterion_rec(outputs, y_batch.long())
+#             loss_celw = criterion_celw(outputs, y_batch.long())
+#             loss_cel = criterion_cel(outputs, y_batch.long())
+#             loss_foc = criterion_foc(outputs, y_batch.long())
+            
+#             fin_loss = loss_pr 
+#             fin_loss = loss_rec 
+#             fin_loss = loss_cel 
+#             fin_loss = loss_foc 
+#             fin_loss = loss_celw 
+
+#             # recall_loss_term = rec_reg * loss_rec
+#             # fin_loss = loss_pr + recall_loss_term
+#             # fin_loss = loss_cel + recall_loss_term  
+#             # fin_loss = loss_foc + recall_loss_term  
+#             # fin_loss = loss_celw + recall_loss_term 
+
+
+
+#             fin_loss.backward()
+#             optimizer.step()
+#             epoch_loss += fin_loss.item()
+
+#         # Evaluate every 5 epochs
+#         if epoch % 5 == 0 or epoch == num_epochs:
+#             test_accuracy, precision, recall, auroc = evaluate_metrics(model, test_loader)
+#             print(
+#                 f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
+#                 f"Test Accuracy: {test_accuracy:.4f}, Precision: {precision:.4f}, "
+#                 f"Recall: {recall:.4f}, AUROC: {auroc:.4f}"
+#             )
+
+
+# def evaluate_metrics(model, loader):
+#     model.eval()
+#     y_true = []
+#     y_pred = []
+#     y_probs = []
+
+#     with torch.no_grad():
+#         for X_batch, y_batch in loader:
+#             outputs = model(X_batch)
+#             probabilities = torch.softmax(outputs, dim=1)[:, 1]  # Probability of the positive class
+#             predictions = torch.argmax(outputs, axis=1)
+
+#             y_true.extend(y_batch.numpy())
+#             y_pred.extend(predictions.numpy())
+#             y_probs.extend(probabilities.numpy())
+
+#     # Calculate metrics
+#     accuracy = accuracy_score(y_true, y_pred)
+#     precision = precision_score(y_true, y_pred, zero_division=0)
+#     recall = recall_score(y_true, y_pred, zero_division=0)
+#     auroc = roc_auc_score(y_true, y_probs)
+
+#     return accuracy, precision, recall, auroc
+
+
+
+
+
+
+# import csv
+# import pandas as pd

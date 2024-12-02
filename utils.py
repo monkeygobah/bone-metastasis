@@ -2,9 +2,13 @@ import pandas as pd
 from maps import N_MAPPING, INCOME_MAPPING, RENAME_MAPPING, T_MAPPING,RENAME_MAPPING_1
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
-from sklearn.impute import SimpleImputer
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+import os
+import matplotlib.pyplot as plt
 
 
 def combine_cols(data):
@@ -139,23 +143,64 @@ def prep_data(save=False):
     return data
 
 
-def split_data(data, drop_real_world=False, bone = True):
+
+
+
+def split_data(data, drop_real_world=False, drop_columns_experiment=False, bone=True):
     # Separate features and targets for bone metastasis
     X = data.drop(columns=['bone_met', 'lung_met'])
-    if drop_real_world:
-        X= X.drop(columns = ['surgery_Not recommended', 
-                             "surgery_Not recommended, contraindicated due to other cond; autopsy only (1973-2002)",
-                            "surgery_Recommended but not performed, patient refused",
-                            "surgery_Recommended but not performed, unknown reason",
-                            "surgery_Recommended, unknown if performed",
-                            'surgery_Surgery performed',
-                            'surgery_Unknown; death certificate; or autopsy only (2003+)'])
 
+    # Drop real-world columns if specified
+    if drop_real_world:
+        X = X.drop(columns=[
+            'surgery_Not recommended',
+            "surgery_Not recommended, contraindicated due to other cond; autopsy only (1973-2002)",
+            "surgery_Recommended but not performed, patient refused",
+            "surgery_Recommended but not performed, unknown reason",
+            "surgery_Recommended, unknown if performed",
+            'surgery_Surgery performed',
+            'surgery_Unknown; death certificate; or autopsy only (2003+)'
+        ])
+
+    if drop_columns_experiment:
+        X = X.drop(columns=[
+            "rural_urban_Counties in metropolitan areas of 250,000 to 1 million pop",
+            "rural_urban_Counties in metropolitan areas of lt 250 thousand pop",
+            "rural_urban_Nonmetropolitan counties adjacent to a metropolitan area",
+            "rural_urban_Nonmetropolitan counties not adjacent to a metropolitan area",
+            "rural_urban_Unknown/missing/no match/Not 1990-2022",
+            "ethnicity_Asian Indian (2010+)",
+            "ethnicity_Asian Indian or Pakistani, NOS (1988+)",
+            "ethnicity_Black",
+            "ethnicity_Chamorran (1991+)",
+            "ethnicity_Chinese",
+            "ethnicity_Fiji Islander (1991+)",
+            "ethnicity_Filipino",
+            "ethnicity_Guamanian, NOS (1991+)",
+            "ethnicity_Hawaiian",
+            "ethnicity_Hmong (1988+)",
+            "ethnicity_Japanese",
+            "ethnicity_Kampuchean (1988+)",
+            "ethnicity_Korean (1988+)",
+            "ethnicity_Laotian (1988+)",
+            "ethnicity_Micronesian, NOS (1991+)",
+            "ethnicity_Other",
+            "ethnicity_Other Asian (1991+)",
+            "ethnicity_Pacific Islander, NOS (1991+)",
+            "ethnicity_Pakistani (2010+)",
+            "ethnicity_Samoan (1991+)",
+            "ethnicity_Thai (1994+)",
+            "ethnicity_Tongan (1991+)",
+            "ethnicity_Unknown",
+            "ethnicity_Vietnamese (1988+)",
+            "ethnicity_White"
+        ])
+
+    # Select target column based on the `bone` parameter
     if bone:
         y_bone = data['bone_met']
     else:
         y_bone = data['lung_met']
-
 
 
     # Split data for bone metastasis
@@ -167,11 +212,11 @@ def split_data(data, drop_real_world=False, bone = True):
     X_train_bone = pd.DataFrame(imputer.fit_transform(X_train_bone), columns=X_train_bone.columns)
     X_test_bone = pd.DataFrame(imputer.transform(X_test_bone), columns=X_test_bone.columns)
 
+    # X_train_bone, X_test_bone = impute_data(X_train_bone, X_test_bone, strategy='knn')  # You can choose 'knn', 'iterative', or 'mean'
 
     # Drop any remaining non-numeric columns if necessary
     data = data.select_dtypes(include=[np.number])
 
-    # Apply SMOTE for both bone
     sm_bone = SMOTE(random_state=42)
     X_resampled_bone, y_resampled_bone = sm_bone.fit_resample(X_train_bone, y_train_bone)
 
@@ -179,8 +224,33 @@ def split_data(data, drop_real_world=False, bone = True):
 
 
 
+def impute_data(X_train, X_test, strategy='knn'):
+    # Separate numerical and categorical columns
+
+    numerical_cols = X_train.select_dtypes(include=['float64', 'int64']).columns
+    categorical_cols = X_train.select_dtypes(exclude=['float64', 'int64']).columns  
+
+    if len(numerical_cols) > 0:
+        if strategy == 'knn':
+            imputer_num = KNNImputer(n_neighbors=5)
+        elif strategy == 'iterative':
+            imputer_num = IterativeImputer(max_iter=10, random_state=42)
+        else: 
+            imputer_num = SimpleImputer(strategy='mean')
+
+        X_train[numerical_cols] = imputer_num.fit_transform(X_train[numerical_cols])
+        X_test[numerical_cols] = imputer_num.transform(X_test[numerical_cols])
+
+    if len(categorical_cols) > 0:
+        imputer_cat = SimpleImputer(strategy='most_frequent')
+        X_train[categorical_cols] = imputer_cat.fit_transform(X_train[categorical_cols])
+        X_test[categorical_cols] = imputer_cat.transform(X_test[categorical_cols])
+
+    return X_train, X_test
+
+
+
 def get_metrics(y_proba_bone,y_test_bone):
-    # Compute precision, recall, and F1 for various thresholds
     thresholds = np.linspace(0, 1, 100)
     precisions, recalls, f1s = [], [], []
 
@@ -194,36 +264,8 @@ def get_metrics(y_proba_bone,y_test_bone):
     return precisions, recalls, f1s, thresholds
 
 
-# def cumulative_feature_importance(models, X_columns, n_features=20):
-#     feature_scores = {feature: 0 for feature in X_columns}
-#     n = len(X_columns)
-
-#     for model_info in models:
-#         importances = model_info['importances']
-#         log_reg = model_info['log_reg']
-#         model_name = model_info['model_name']
-        
-#         if log_reg:
-#             ranked_indices = np.argsort(np.abs(importances))[::-1]
-#         else:
-#             ranked_indices = np.argsort(importances)[::-1]
-        
-#         for rank, idx in enumerate(ranked_indices[:n_features]):
-#             feature = X_columns[idx]
-#             score = n - rank
-#             feature_scores[feature] += score
-    
-#     # Convert scores to DataFrame
-#     feature_ranking = pd.DataFrame({
-#         'Feature': feature_scores.keys(),
-#         'Cumulative_Score': feature_scores.values()
-#     })
-#     feature_ranking = feature_ranking.sort_values(by='Cumulative_Score', ascending=False).reset_index(drop=True)
-
-#     return feature_ranking
 
 def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15, 20]):
-    print(thresholds)
     results = {}
     conserved_features = {}
 
@@ -242,18 +284,16 @@ def cumulative_feature_importance(models, thresholds=[3, 5, 10, 15, 20]):
         conserved_features[threshold] = common_features  # Save the feature names for this threshold
     
     # Print the conserved features for each threshold
-    for threshold, features in conserved_features.items():
-        print(f"\nFor threshold {threshold}, conserved features ({len(features)}):")
-        for feature in features:
-            print(f"- {feature}")
+    # for threshold, features in conserved_features.items():
+    #     print(f"\nFor threshold {threshold}, conserved features ({len(features)}):")
+    #     for feature in features:
+    #         print(f"- {feature}")
 
     return results, conserved_features
 
 
 
-import os
-import matplotlib.pyplot as plt
-import pandas as pd
+
 
 def plot_feature_distributions(features, data, label_column, output_dir="feature_distributions"):
     # Create output directory if it doesn't exist

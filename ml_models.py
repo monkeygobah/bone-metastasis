@@ -7,6 +7,35 @@ from sklearn.metrics import roc_curve, classification_report, confusion_matrix, 
 from sklearn.metrics import f1_score
 
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_easy_sample_distribution(y_proba, y_true, easy_positive_threshold=0.8, easy_negative_threshold=0.2):
+    # Separate easy positives and negatives
+    easy_positives = y_proba[(y_proba >= easy_positive_threshold) & (y_true == 1)]
+    easy_negatives = y_proba[(y_proba <= easy_negative_threshold) & (y_true == 0)]
+    hard_samples = y_proba[(y_proba > easy_negative_threshold) & (y_proba < easy_positive_threshold)]
+
+    # Plot histograms
+    plt.figure(figsize=(10, 6))
+    plt.hist(easy_positives, bins=20, alpha=0.6, color='green', label='Easy Positives')
+    plt.hist(easy_negatives, bins=20, alpha=0.6, color='blue', label='Easy Negatives')
+    plt.hist(hard_samples, bins=20, alpha=0.6, color='orange', label='Hard Samples')
+
+    plt.axvline(x=easy_positive_threshold, color='red', linestyle='--', label=f'Positive Threshold = {easy_positive_threshold}')
+    plt.axvline(x=easy_negative_threshold, color='purple', linestyle='--', label=f'Negative Threshold = {easy_negative_threshold}')
+
+    plt.title("Distribution of Predicted Probabilities", fontsize=14)
+    plt.xlabel("Predicted Probability", fontsize=12)
+    plt.ylabel("Frequency", fontsize=12)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+# Example usage with your `run_log_reg` function
+
+
 def run_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False):
     # Train Logistic Regression for bone metastasis
     lr_model = LogisticRegression(random_state=42, class_weight='balanced', max_iter=500)
@@ -40,13 +69,15 @@ def run_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,ver
     #          cm_name='lr_cm.png',
     #          model='log reg')
 
+    # plot_easy_sample_distribution(y_proba_lr, y_test_bone, easy_positive_threshold=0.8, easy_negative_threshold=0.2)
+
     imps, tops = feat_imp(None, X_resampled_bone, n=20,
              title="Top 10 Feature Importance (Logistic Regression)",
              name='lr_feat_imp.png',
              model=lr_model,
              log_reg=True)
 
-    return y_proba_lr, imps
+    return y_proba_lr, imps,y_pred_lr
 
 
 
@@ -131,7 +162,7 @@ def run_xgb(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone, y_trai
              title="Top 10 Feature Importance (XGBoost)",
              name='xg_feat_imp.png')
 
-    return y_proba_bone, imps
+    return y_proba_bone, imps,y_pred_bone
 
 
 def run_rf(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False):
@@ -172,4 +203,4 @@ def run_rf(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=
              title="Top 10 Feature Importance (Random Forest)",
              name='rf_feat_imp.png')
 
-    return y_proba_rf, imps
+    return y_proba_rf, imps,y_pred_rf
