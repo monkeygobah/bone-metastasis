@@ -17,31 +17,33 @@ of precision, F1 score, and AUC value to evaluate its overall effectiveness.
 def main():
     data = prep_data(save=False)
     X_train_bone, X_test_bone, y_train_bone, \
-        y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data, drop_real_world = False, drop_columns_experiment=False,bone=True)
+        y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data, drop_real_world = False, drop_columns_experiment=False, drop_missing=False, bone=False)
 
-
-
-    # corr_matrix(data)
+    # # corr_matrix(data)
     y_proba_bone, xg_imps,y_pred_xgb = run_xgb(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone,y_train_bone)
     y_proba_lr, lr_imps,y_pred_lr   = run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
     # y_proba_lasso, lasso_imps = run_lasso_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False)
     y_proba_rf,rf_imps,y_pred_rf   = run_rf(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
+    
+    #using original, non SMOTE data
+    y_pred_mlp = engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
+    # print(y_pred_mlp)
 
-    # Ensemble prediction (majority vote with 1 positive vote required)
-    y_pred_ensemble = np.logical_or.reduce([y_pred_xgb, y_pred_lr, y_pred_rf]).astype(int)
 
-    # ensemble_accuracy = accuracy_score(y_test_bone, y_pred_ensemble)
-    # ensemble_precision = precision_score(y_test_bone, y_pred_ensemble)
-    # ensemble_recall = recall_score(y_test_bone, y_pred_ensemble)
-    # ensemble_f1 = f1_score(y_test_bone, y_pred_ensemble)
-    # ensemble_auroc = roc_auc_score(y_test_bone, np.maximum.reduce([y_proba_bone, y_proba_lr, y_proba_rf]))
+    y_pred_ensemble = np.logical_or.reduce([y_pred_xgb, y_pred_lr, y_pred_rf, np.array(y_pred_mlp)]).astype(int)
 
-    # print(f"Ensemble Metrics:")
-    # print(f"Accuracy: {ensemble_accuracy}")
-    # print(f"Precision: {ensemble_precision}")
-    # print(f"Recall: {ensemble_recall}")
-    # print(f"F1 Score: {ensemble_f1}")
-    # print(f"AUROC: {ensemble_auroc}")
+    ensemble_accuracy = accuracy_score(y_test_bone, y_pred_ensemble)
+    ensemble_precision = precision_score(y_test_bone, y_pred_ensemble)
+    ensemble_recall = recall_score(y_test_bone, y_pred_ensemble)
+    ensemble_f1 = f1_score(y_test_bone, y_pred_ensemble)
+    ensemble_auroc = roc_auc_score(y_test_bone, np.maximum.reduce([y_proba_bone, y_proba_lr, y_proba_rf,y_pred_mlp]))
+
+    print(f"Ensemble Metrics:")
+    print(f"Accuracy: {ensemble_accuracy}")
+    print(f"Precision: {ensemble_precision}")
+    print(f"Recall: {ensemble_recall}")
+    print(f"F1 Score: {ensemble_f1}")
+    print(f"AUROC: {ensemble_auroc}")
 
 
     models = [
@@ -50,11 +52,11 @@ def main():
         {'model_name': 'Random Forest', 'top_features': rf_imps}
     ]
     _,results = cumulative_feature_importance(models)
-    # print(results)
+    print(results)
     
     
     # feature_ranking.to_csv('combined_feat_imps.csv')
-    plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr)
+    # plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr)
     
     print('going to engine')
     
@@ -68,8 +70,7 @@ def main():
     # print("\nClass distribution in y_test:")
     # print(y_test_bone.value_counts())    
     
-    #using original, non SMOTE data
-    engine(X_train_bone,X_test_bone,y_train_bone,y_test_bone)
+
 
     #using SMOTE data
     # engine(X_resampled_bone,X_test_bone,y_resampled_bone,y_test_bone)

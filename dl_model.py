@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
+from loss_funcs import *
 
 class MLP(nn.Module):
     def __init__(self, input_size, dropout_rate=0.3):
@@ -30,62 +31,6 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-
-    def forward(self, logits, targets):
-        ce_loss = nn.CrossEntropyLoss()(logits, targets)
-        pt = torch.exp(-ce_loss)  # Probability of the correct class
-        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
-        return focal_loss
-
-
-class RecallLoss(nn.Module):
-    def __init__(self):
-        super(RecallLoss, self).__init__()
-
-    def forward(self, logits, targets):
-        preds = torch.sigmoid(logits[:, 1])  # Positive class logits
-        labels = targets.float()
-
-        # False Negatives = (1 - predicted) * true positive
-        fn_loss = ((1 - preds) * labels).mean()
-        return fn_loss
-
-
-class WeightedPRAUCLoss(nn.Module):
-    def __init__(self, positive_weight=1.0):
-        super(WeightedPRAUCLoss, self).__init__()
-        self.positive_weight = positive_weight
-
-    def forward(self, logits, targets):
-        preds = torch.sigmoid(logits[:, 1])  
-        labels = targets.float()
-
-        # Pairwise indices
-        positive_indices = (labels == 1).nonzero(as_tuple=True)[0]
-        negative_indices = (labels == 0).nonzero(as_tuple=True)[0]
-
-        if len(positive_indices) == 0 or len(negative_indices) == 0:
-            return torch.tensor(0.0, requires_grad=True)
-
-        positive_preds = preds[positive_indices]
-        negative_preds = preds[negative_indices]
-
-        # Pairwise differences
-        pairwise_diff = positive_preds.unsqueeze(1) - negative_preds.unsqueeze(0)
-        hinge_loss = torch.clamp(1 - pairwise_diff, min=0)
-
-        # Apply weights to minority-class pairs
-        weights = torch.ones_like(hinge_loss)
-        weights[:, :] = self.positive_weight  
-
-        loss = (weights * hinge_loss).mean()
-        return loss
 
 
 def get_balanced_dataloader(X_train_tensor, y_train_tensor, batch_size):
@@ -133,6 +78,7 @@ import pandas as pd
 
 def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
     # Get DataLoaders and class weight
+    torch.manual_seed(1)
     balanced_loader, normal_loader, test_loader, pos_weight_tensor = get_dataloaders(
         X_train_bone, X_test_bone, y_train_bone, y_test_bone, batch_size=32
     )
@@ -142,10 +88,10 @@ def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
 
     # Define the loss functions
     loss_functions = {
-        "loss_pr": WeightedPRAUCLoss(positive_weight=1),
-        "loss_rec": RecallLoss(),
-        "loss_cel": nn.CrossEntropyLoss(),
-        "loss_foc": FocalLoss(alpha=1, gamma=2),
+        # "loss_pr": WeightedPRAUCLoss(positive_weight=1),
+        # "loss_rec": RecallLoss(),
+        # "loss_cel": nn.CrossEntropyLoss(),
+        # "loss_foc": FocalLoss(alpha=1, gamma=2),
         "loss_celw": nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight_tensor.item()])),
     }
 
@@ -153,20 +99,22 @@ def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
     for loss_name, loss_fn in loss_functions.items():
         print(f"\nTraining with {loss_name}...\n")
         model = MLP(input_size)
-        train_loop(
+        y_pred_mlp = train_loop(
             model,
             balanced_loader,
             test_loader,
             loss_fn,
-            num_epochs=100,
+            num_epochs=36,
             lr=0.001,
             loss_name=loss_name
         )
+    return y_pred_mlp
 
+# Epoch 36/56 - Train Loss: 0.1283, Test Accuracy: 0.7815, Precision: 0.1555, Recall: 0.6552, AUROC: 0.8250, F1: 0.2513
 
-def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.001, loss_name="loss"):
+def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=50, lr=0.001, loss_name="loss"):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
-
+    torch.manual_seed(1) 
     # CSV file to log results
     csv_file = f"{loss_name}_metrics.csv"
     with open(csv_file, mode='w', newline='') as file:
@@ -174,6 +122,7 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.0
         writer.writerow(["Epoch", "Precision", "Recall", "Accuracy", "AUROC", "F1", "Best Epoch"])
 
     best_metrics = {"Precision": 0, "Recall": 0, "Accuracy": 0, "AUROC": 0, "F1": 0, "Epoch": 0}
+    rec_loss = RecallLoss()
 
     for epoch in range(1, num_epochs + 1):
         model.train()
@@ -185,13 +134,17 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.0
 
             # Calculate loss
             loss = loss_fn(outputs, y_batch.long())
-            loss.backward()
+            rec_loss_0 = rec_loss(outputs, y_batch.long())
+            
+            final_loss = loss + .00001 * rec_loss_0
+
+            final_loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()
+            epoch_loss += final_loss.item()
 
         # Evaluate every 5 epochs
-        if epoch % 5 == 0 or epoch == num_epochs:
-            test_accuracy, precision, recall, auroc, f1 = evaluate_metrics_extended(model, test_loader)
+        if epoch % 2 == 0 or epoch == num_epochs:
+            test_accuracy, precision, recall, auroc, f1,y_pred = evaluate_metrics_extended(model, test_loader)
 
             print(
                 f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
@@ -200,7 +153,7 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.0
             )
 
             # Check if this epoch has the best recall
-            if recall > best_metrics["F1"]:
+            if f1 > best_metrics["F1"]:
                 best_metrics.update({"Precision": precision, "Recall": recall, "Accuracy": test_accuracy,
                                      "AUROC": auroc, "F1": f1, "Epoch": epoch})
 
@@ -210,6 +163,7 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=100, lr=0.0
                 writer.writerow([epoch, precision, recall, test_accuracy, auroc, f1, best_metrics["Epoch"]])
 
     print(f"Best metrics for {loss_name}: {best_metrics}")
+    return y_pred
 
 
 def evaluate_metrics_extended(model, loader):
@@ -235,7 +189,7 @@ def evaluate_metrics_extended(model, loader):
     auroc = roc_auc_score(y_true, y_probs)
     f1 = f1_score(y_true, y_pred, zero_division=0)
 
-    return accuracy, precision, recall, auroc, f1
+    return accuracy, precision, recall, auroc, f1, y_pred
 
 
 
@@ -294,23 +248,23 @@ def evaluate_metrics_extended(model, loader):
 #             # recall_loss_term = rec_reg * loss_rec
 #             # fin_loss = loss_pr + recall_loss_term
 #             # fin_loss = loss_cel + recall_loss_term  
-#             # fin_loss = loss_foc + recall_loss_term  
-#             # fin_loss = loss_celw + recall_loss_term 
+            # fin_loss = loss_foc + recall_loss_term  
+            # fin_loss = loss_celw + recall_loss_term 
 
 
 
-#             fin_loss.backward()
-#             optimizer.step()
-#             epoch_loss += fin_loss.item()
+        #     fin_loss.backward()
+        #     optimizer.step()
+        #     epoch_loss += fin_loss.item()
 
-#         # Evaluate every 5 epochs
-#         if epoch % 5 == 0 or epoch == num_epochs:
-#             test_accuracy, precision, recall, auroc = evaluate_metrics(model, test_loader)
-#             print(
-#                 f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
-#                 f"Test Accuracy: {test_accuracy:.4f}, Precision: {precision:.4f}, "
-#                 f"Recall: {recall:.4f}, AUROC: {auroc:.4f}"
-#             )
+        # # Evaluate every 5 epochs
+        # if epoch % 5 == 0 or epoch == num_epochs:
+        #     test_accuracy, precision, recall, auroc = evaluate_metrics(model, test_loader)
+        #     print(
+        #         f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
+        #         f"Test Accuracy: {test_accuracy:.4f}, Precision: {precision:.4f}, "
+        #         f"Recall: {recall:.4f}, AUROC: {auroc:.4f}"
+        #     )
 
 
 # def evaluate_metrics(model, loader):
@@ -339,8 +293,3 @@ def evaluate_metrics_extended(model, loader):
 
 
 
-
-
-
-# import csv
-# import pandas as pd

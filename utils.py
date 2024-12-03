@@ -146,7 +146,7 @@ def prep_data(save=False):
 
 
 
-def split_data(data, drop_real_world=False, drop_columns_experiment=False, bone=True):
+def split_data(data, drop_real_world=False, drop_columns_experiment=False, drop_missing=False ,bone=True):
     # Separate features and targets for bone metastasis
     X = data.drop(columns=['bone_met', 'lung_met'])
 
@@ -196,6 +196,15 @@ def split_data(data, drop_real_world=False, drop_columns_experiment=False, bone=
             "ethnicity_White"
         ])
 
+    if drop_missing:
+        X = X.drop(columns=[
+            "diag_days_to_treatment",
+            "tumor_size",
+
+        ])
+
+
+
     # Select target column based on the `bone` parameter
     if bone:
         y_bone = data['bone_met']
@@ -207,12 +216,12 @@ def split_data(data, drop_real_world=False, drop_columns_experiment=False, bone=
     X_train_bone, X_test_bone, y_train_bone, y_test_bone = train_test_split(X, y_bone, test_size=0.2, random_state=42)
 
 
-    # Impute missing values for all columns
-    imputer = SimpleImputer(strategy='most_frequent')  # Use 'most_frequent' for categorical data; 'mean' or 'median' for numerical data
-    X_train_bone = pd.DataFrame(imputer.fit_transform(X_train_bone), columns=X_train_bone.columns)
-    X_test_bone = pd.DataFrame(imputer.transform(X_test_bone), columns=X_test_bone.columns)
+    # # Impute missing values for all columns
+    # imputer = SimpleImputer(strategy='most_frequent')  
+    # X_train_bone = pd.DataFrame(imputer.fit_transform(X_train_bone), columns=X_train_bone.columns)
+    # X_test_bone = pd.DataFrame(imputer.transform(X_test_bone), columns=X_test_bone.columns)
 
-    # X_train_bone, X_test_bone = impute_data(X_train_bone, X_test_bone, strategy='knn')  # You can choose 'knn', 'iterative', or 'mean'
+    X_train_bone, X_test_bone = impute_data(X_train_bone, X_test_bone, strategy='iterative')  
 
     # Drop any remaining non-numeric columns if necessary
     data = data.select_dtypes(include=[np.number])
