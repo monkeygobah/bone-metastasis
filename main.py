@@ -19,7 +19,7 @@ def main():
     X_train_bone, X_test_bone, y_train_bone, \
         y_test_bone,X_resampled_bone, y_resampled_bone = split_data(data, drop_real_world = False, drop_columns_experiment=False, drop_missing=False, bone=False)
 
-    # # corr_matrix(data)
+    corr_matrix(data)
     y_proba_bone, xg_imps,y_pred_xgb = run_xgb(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone,y_train_bone)
     y_proba_lr, lr_imps,y_pred_lr   = run_log_reg(X_resampled_bone,y_resampled_bone,X_test_bone,y_test_bone)
     # y_proba_lasso, lasso_imps = run_lasso_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=False)

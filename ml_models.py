@@ -31,7 +31,7 @@ def plot_easy_sample_distribution(y_proba, y_true, easy_positive_threshold=0.8, 
     plt.legend()
     plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
 # Example usage with your `run_log_reg` function
 
@@ -57,17 +57,17 @@ def run_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,ver
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # Generate plots
-    # precisions, recalls, f1s, thresholds = get_metrics(y_proba_lr, y_test_bone)
-    # prf_thresh(thresholds, precisions, recalls, f1s,
-    #            title="Logistic Regression: Precision, Recall, and F1-Score vs. Threshold",
-    #            name='log_reg_prf_thresh.png')
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_lr, y_test_bone)
+    prf_thresh(thresholds, precisions, recalls, f1s,
+               title="Logistic Regression: Precision, Recall, and F1-Score vs. Threshold",
+               name='log_reg_prf_thresh.png')
 
-    # auroc_cm(y_test_bone, y_proba_lr, verbose=verbose,
-    #          auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
-    #          auroc_name='lr_auroc.png',
-    #          cm_title='Logistic Regression: Confusion Matrix at Optimal Threshold',
-    #          cm_name='lr_cm.png',
-    #          model='log reg')
+    auroc_cm(y_test_bone, y_proba_lr, verbose=verbose,
+             auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
+             auroc_name='lr_auroc.png',
+             cm_title='Logistic Regression: Confusion Matrix at Optimal Threshold',
+             cm_name='lr_cm.png',
+             model='log reg')
 
     # plot_easy_sample_distribution(y_proba_lr, y_test_bone, easy_positive_threshold=0.8, easy_negative_threshold=0.2)
 
@@ -102,17 +102,17 @@ def run_lasso_log_reg(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bo
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
-    # precisions, recalls, f1s, thresholds = get_metrics(y_proba_lasso, y_test_bone)
-    # prf_thresh(thresholds, precisions, recalls, f1s,
-    #            title="LASSO Logistic Regression: Precision, Recall, and F1-Score vs. Threshold",
-    #            name='lasso_log_reg_prf_thresh.png')
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_lasso, y_test_bone)
+    prf_thresh(thresholds, precisions, recalls, f1s,
+               title="LASSO Logistic Regression: Precision, Recall, and F1-Score vs. Threshold",
+               name='lasso_log_reg_prf_thresh.png')
 
-    # auroc_cm(y_test_bone, y_proba_lasso, verbose=verbose,
-    #          auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
-    #          auroc_name='lasso_lr_auroc.png',
-    #          cm_title='LASSO Logistic Regression: Confusion Matrix at Optimal Threshold',
-    #          cm_name='lasso_lr_cm.png',
-    #          model='lasso log reg')
+    auroc_cm(y_test_bone, y_proba_lasso, verbose=verbose,
+             auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
+             auroc_name='lasso_lr_auroc.png',
+             cm_title='LASSO Logistic Regression: Confusion Matrix at Optimal Threshold',
+             cm_name='lasso_lr_cm.png',
+             model='lasso log reg')
 
     imps, tops = feat_imp(None, X_resampled_bone, n=20,
              title="Top 10 Feature Importance (LASSO Logistic Regression)",
@@ -145,17 +145,17 @@ def run_xgb(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone, y_trai
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
-    # precisions, recalls, f1s, thresholds = get_metrics(y_proba_bone, y_test_bone)
-    # prf_thresh(thresholds, precisions, recalls, f1s,
-    #            title="XGBoost: Precision, Recall, and F1-Score vs. Threshold",
-    #            name='xgboost_prf_thresh.png')
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_bone, y_test_bone)
+    prf_thresh(thresholds, precisions, recalls, f1s,
+               title="XGBoost: Precision, Recall, and F1-Score vs. Threshold",
+               name='xgboost_prf_thresh.png')
 
-    # auroc_cm(y_test_bone, y_proba_bone, verbose=verbose,
-    #          auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
-    #          auroc_name='xg_auroc.png',
-    #          cm_title='XGBoost: Confusion Matrix at Optimal Threshold',
-    #          cm_name='xg_cm.png',
-            #  model='xgboost')
+    auroc_cm(y_test_bone, y_proba_bone, verbose=verbose,
+             auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
+             auroc_name='xg_auroc.png',
+             cm_title='XGBoost: Confusion Matrix at Optimal Threshold',
+             cm_name='xg_cm.png',
+             model='xgboost')
 
     feature_importances = xgb_model_bone.feature_importances_
     imps, tops = feat_imp(feature_importances, X_resampled_bone, n=20,
@@ -186,17 +186,17 @@ def run_rf(X_resampled_bone, y_resampled_bone, X_test_bone, y_test_bone,verbose=
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}, F1: {f1:.4f}")
 
     # # Generate plots
-    # precisions, recalls, f1s, thresholds = get_metrics(y_proba_rf, y_test_bone)
-    # prf_thresh(thresholds, precisions, recalls, f1s,
-    #            title="Random Forest: Precision, Recall, and F1-Score vs. Threshold",
-    #            name='randfor_prf_thresh.png')
+    precisions, recalls, f1s, thresholds = get_metrics(y_proba_rf, y_test_bone)
+    prf_thresh(thresholds, precisions, recalls, f1s,
+               title="Random Forest: Precision, Recall, and F1-Score vs. Threshold",
+               name='randfor_prf_thresh.png')
 
-    # auroc_cm(y_test_bone, y_proba_rf, verbose=verbose,
-    #          auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
-    #          auroc_name='rf_auroc.png',
-    #          cm_title='Random Forest: Confusion Matrix at Optimal Threshold',
-    #          cm_name='rf_cm.png',
-    #          model='random forest')
+    auroc_cm(y_test_bone, y_proba_rf, verbose=verbose,
+             auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
+             auroc_name='rf_auroc.png',
+             cm_title='Random Forest: Confusion Matrix at Optimal Threshold',
+             cm_name='rf_cm.png',
+             model='random forest')
 
     feature_importances_rf = rf_model.feature_importances_
     imps, tops = feat_imp(feature_importances_rf, X_resampled_bone, n=20,
