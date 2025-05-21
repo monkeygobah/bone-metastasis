@@ -120,11 +120,11 @@ def prep_data(save=False):
     data = fix_names(data, save=save)
     data = do_mapping(data)
     data = do_ohe(data)
-    file_path = r'hot_encoding.xlsx'
+    
     if save:
+        file_path = r'hot_encoding.xlsx'
         data.to_excel(file_path, index=False)
-
-    print(f"Data saved successfully to {file_path}")
+        print(f"Data saved successfully to {file_path}")
 
 
 

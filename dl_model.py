@@ -10,10 +10,13 @@ import numpy as np
 from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 from loss_funcs import *
+from plotting import auroc_cm
+
 
 class MLP(nn.Module):
     def __init__(self, input_size, dropout_rate=0.3):
         super(MLP, self).__init__()
+        print(input_size)
         self.model = nn.Sequential(
             nn.Linear(input_size, 128),
             nn.BatchNorm1d(128),
@@ -99,24 +102,35 @@ def engine(X_train_bone, X_test_bone, y_train_bone, y_test_bone):
     for loss_name, loss_fn in loss_functions.items():
         print(f"\nTraining with {loss_name}...\n")
         model = MLP(input_size)
-        y_pred_mlp = train_loop(
+        y_pred_mlp,y_probs = train_loop(
             model,
             balanced_loader,
             test_loader,
             loss_fn,
-            num_epochs=36,
+            num_epochs=100,
             lr=0.001,
             loss_name=loss_name
         )
-    return y_pred_mlp
+    
+    auroc_cm(y_test_bone, y_probs, verbose=False,
+            auroc_title="ROC Curve with Optimal Threshold (Youden's Index)",
+            auroc_name='lasso_MLP_auroc.png',
+            cm_title='MLP: Confusion Matrix at Optimal Threshold',
+            cm_name='MLP_cm.png',
+            model='mlp')
+
+    return y_pred_mlp,y_probs
 
 # Epoch 36/56 - Train Loss: 0.1283, Test Accuracy: 0.7815, Precision: 0.1555, Recall: 0.6552, AUROC: 0.8250, F1: 0.2513
+
+#36 epochs for lung
+#67 epochs for bone
 
 def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=50, lr=0.001, loss_name="loss"):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
     torch.manual_seed(1) 
     # CSV file to log results
-    csv_file = f"{loss_name}_metrics.csv"
+    csv_file = f"{loss_name}_metrics_BONE.csv"
     with open(csv_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Epoch", "Precision", "Recall", "Accuracy", "AUROC", "F1", "Best Epoch"])
@@ -143,8 +157,8 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=50, lr=0.00
             epoch_loss += final_loss.item()
 
         # Evaluate every 5 epochs
-        if epoch % 2 == 0 or epoch == num_epochs:
-            test_accuracy, precision, recall, auroc, f1,y_pred = evaluate_metrics_extended(model, test_loader)
+        if epoch % 1 == 0 or epoch == num_epochs:
+            test_accuracy, precision, recall, auroc, f1,y_pred,y_probs = evaluate_metrics_extended(model, test_loader)
 
             print(
                 f"Epoch {epoch}/{num_epochs} - Train Loss: {epoch_loss / len(train_loader):.4f}, "
@@ -163,7 +177,10 @@ def train_loop(model, train_loader, test_loader, loss_fn, num_epochs=50, lr=0.00
                 writer.writerow([epoch, precision, recall, test_accuracy, auroc, f1, best_metrics["Epoch"]])
 
     print(f"Best metrics for {loss_name}: {best_metrics}")
-    return y_pred
+
+
+
+    return y_pred,y_probs
 
 
 def evaluate_metrics_extended(model, loader):
@@ -189,7 +206,7 @@ def evaluate_metrics_extended(model, loader):
     auroc = roc_auc_score(y_true, y_probs)
     f1 = f1_score(y_true, y_pred, zero_division=0)
 
-    return accuracy, precision, recall, auroc, f1, y_pred
+    return accuracy, precision, recall, auroc, f1, y_pred, y_probs
 
 
 

@@ -194,7 +194,7 @@ def feat_imp(feature_importances,X_resampled_bone, n=20, title = None, name = No
 
 
 
-def plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr):
+def plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr,y_proba_mlp):
     # Calculate ROC metrics and AUC scores for each model
     fpr_xgb, tpr_xgb, _ = roc_curve(y_test_bone, y_proba_bone)
     auc_xgb = roc_auc_score(y_test_bone, y_proba_bone)
@@ -205,11 +205,17 @@ def plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr):
     fpr_lr, tpr_lr, _ = roc_curve(y_test_bone, y_proba_lr)
     auc_lr = roc_auc_score(y_test_bone, y_proba_lr)
 
+
+
+    fpr_mlp, tpr_mlp, _ = roc_curve(y_test_bone, y_proba_mlp)
+    auc_mlp = roc_auc_score(y_test_bone, y_proba_mlp)
+    thickness=3
     # Plot all ROC curves on the same plot
     plt.figure(figsize=(10, 8))
-    plt.plot(fpr_xgb, tpr_xgb, label=f"XGBoost (AUC = {auc_xgb:.2f})", color="darkorange", lw=2)
-    plt.plot(fpr_rf, tpr_rf, label=f"Random Forest (AUC = {auc_rf:.2f})", color="blue", lw=2)
-    plt.plot(fpr_lr, tpr_lr, label=f"Logistic Regression (AUC = {auc_lr:.2f})", color="green", lw=2)
+    plt.plot(fpr_xgb, tpr_xgb, label=f"XGBoost (AUC = {auc_xgb:.2f})", color="darkorange", lw=thickness)
+    plt.plot(fpr_rf, tpr_rf, label=f"Random Forest (AUC = {auc_rf:.2f})", color="blue", lw=thickness)
+    plt.plot(fpr_lr, tpr_lr, label=f"Logistic Regression (AUC = {auc_lr:.2f})", color="green", lw=thickness)
+    plt.plot(fpr_mlp, tpr_mlp, label=f"MLP(AUC = {auc_mlp:.2f})", color="black", lw=thickness)
 
     # Add a diagonal line for reference
     plt.plot([0, 1], [0, 1], color="black", linestyle="--", lw=2)
@@ -224,4 +230,4 @@ def plot_all_curves(y_test_bone, y_proba_bone,y_proba_rf,y_proba_lr):
 
     # Show plot
     # plt.show()
-    plt.savefig(os.path.join(output_dir, 'all_aurocs.png'),dpi=300)
+    plt.savefig(os.path.join(output_dir, 'w_mlp_all_aurocs.png'),dpi=300)
